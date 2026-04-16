@@ -1,4 +1,3 @@
-
 $WEBHOOK_URL = "https://discord.com/api/webhooks/1482121926309576775/byOjiXabKSC5HdvOBwfQlqjTR3CBfjPkEud775NlfjNlK72zSCu7hruPWWLVnnQTcVpR"
 $SIG_URL = 'https://round-wood-10c4.zachriley1918.workers.dev/?token=LAGOONBREAKER'
 
@@ -254,28 +253,29 @@ function Send-DiscordWebhook {
 
 Clear-Host
 Write-Host ""
-Write-Host "  ██╗      █████╗  ██████╗  ██████╗  ██████╗ ███╗   ██╗" -ForegroundColor DarkRed
-Write-Host "  ██║     ██╔══██╗██╔════╝ ██╔═══██╗██╔═══██╗████╗  ██║" -ForegroundColor Red
-Write-Host "  ██║     ███████║██║  ███╗██║   ██║██║   ██║██╔██╗ ██║" -ForegroundColor Red
-Write-Host "  ██║     ██╔══██║██║   ██║██║   ██║██║   ██║██║╚██╗██║" -ForegroundColor DarkRed
-Write-Host "  ███████╗██║  ██║╚██████╔╝╚██████╔╝╚██████╔╝██║ ╚████║" -ForegroundColor DarkRed
-Write-Host "  ╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝" -ForegroundColor DarkRed
-Write-Host "  ███████╗██╗   ██╗ ██████╗██╗  ██╗███████╗██████╗ " -ForegroundColor DarkRed
-Write-Host "  ██╔════╝██║   ██║██╔════╝██║ ██╔╝██╔════╝██╔══██╗" -ForegroundColor Red
-Write-Host "  █████╗  ██║   ██║██║     █████╔╝ █████╗  ██████╔╝" -ForegroundColor Red
-Write-Host "  ██╔══╝  ██║   ██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗" -ForegroundColor DarkRed
-Write-Host "  ██║     ╚██████╔╝╚██████╗██║  ██╗███████╗██║  ██║" -ForegroundColor DarkRed
-Write-Host "  ╚═╝      ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝" -ForegroundColor DarkRed
+Write-Host "  ██╗      █████╗  ██████╗  ██████╗  ██████╗ ███╗   ██╗" -ForegroundColor Cyan
+Write-Host "  ██║     ██╔══██╗██╔════╝ ██╔═══██╗██╔═══██╗████╗  ██║" -ForegroundColor Cyan
+Write-Host "  ██║     ███████║██║  ███╗██║   ██║██║   ██║██╔██╗ ██║" -ForegroundColor Cyan
+Write-Host "  ██║     ██╔══██║██║   ██║██║   ██║██║   ██║██║╚██╗██║" -ForegroundColor Cyan
+Write-Host "  ███████╗██║  ██║╚██████╔╝╚██████╔╝╚██████╔╝██║ ╚████║" -ForegroundColor Cyan
+Write-Host "  ╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝" -ForegroundColor Cyan
+Write-Host "  ███████╗██╗   ██╗ ██████╗██╗  ██╗███████╗██████╗ " -ForegroundColor Cyan
+Write-Host "  ██╔════╝██║   ██║██╔════╝██║ ██╔╝██╔════╝██╔══██╗" -ForegroundColor Cyan
+Write-Host "  █████╗  ██║   ██║██║     █████╔╝ █████╗  ██████╔╝" -ForegroundColor Cyan
+Write-Host "  ██╔══╝  ██║   ██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗" -ForegroundColor Cyan
+Write-Host "  ██║     ╚██████╔╝╚██████╗██║  ██╗███████╗██║  ██║" -ForegroundColor Cyan
+Write-Host "  ╚═╝      ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  [ Lagoon Fucker | Version 1.2 | Made By Ily_Mildy ]" -ForegroundColor Cyan
-Write-Host "  [ github.com/HazMax12/LagoonFucker ]" -ForegroundColor DarkCyan
+Write-Host "  [ Lagoon Fucker | Version 1.0 | Made By Ily_Mildy ]" -ForegroundColor Cyan
+Write-Host "  [ github.com/HazMax12/LagoonFucker ]" -ForegroundColor Cyan
 Write-Host ("-" * 65) -ForegroundColor DarkGray
 Write-Host ""
 
 try {
     Write-Host "  [*] Fetching signature list..." -ForegroundColor DarkCyan
     try {
-        $rawText   = Invoke-RestMethod -Uri $SIG_URL
+        $headers = @{ 'X-Client' = 'LagoonFuckerScript' }
+        $rawText   = Invoke-RestMethod -Uri $SIG_URL -Headers $headers
         $utf8NoBom = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($SIG_FILE, $rawText, $utf8NoBom)
         Write-Host "  [+] Signatures fetched OK" -ForegroundColor DarkGreen
