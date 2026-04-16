@@ -196,25 +196,6 @@ public class MemScanner {
 }
 "@
 
-function Show-ProgressBar {
-    param([string]$Label,[int]$Percent,[int]$BarWidth=40)
-    $filled = [int]([Math]::Round($Percent / 100.0 * $BarWidth))
-    $empty  = $BarWidth - $filled
-    $bar    = ('█' * $filled) + ('░' * $empty)
-    Write-Host "`r  $Label  [$bar] $($Percent.ToString().PadLeft(3))%" -NoNewline -ForegroundColor Cyan
-}
-
-function Wait-WithBar {
-    param([string]$Label,[scriptblock]$GetPct,[int]$BarWidth=40)
-    while ($true) {
-        $pct = & $GetPct
-        Show-ProgressBar -Label $Label -Percent $pct -BarWidth $BarWidth
-        if ($pct -ge 100) { break }
-        Start-Sleep -Milliseconds 80
-    }
-    Write-Host ""
-}
-
 function Get-UsernameFromPid {
     param([int]$ProcessId)
     try {
@@ -229,9 +210,7 @@ function Get-UsernameFromPid {
 
 function Send-DiscordWebhook {
     param([string]$WebhookUrl,[string]$MinecraftUsername,[bool]$Detected,[int]$SigCount,[string[]]$ScannedPids)
-    if ([string]::IsNullOrWhiteSpace($WebhookUrl) -or $WebhookUrl -like "*YOUR*") {
-        Write-Host "  [!] Webhook URL not configured — skipping." -ForegroundColor DarkYellow; return
-    }
+    if ([string]::IsNullOrWhiteSpace($WebhookUrl) -or $WebhookUrl -like "*YOUR*") { return }
     $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     $pidList   = if ($ScannedPids.Count -gt 0) { $ScannedPids -join ", " } else { "None" }
     if ($Detected) { $color=15158332; $title=":warning: Cheat Client DETECTED"; $desc="**Lagoon Fucker** signatures found in memory." }
@@ -272,17 +251,9 @@ Write-Host ("-" * 65) -ForegroundColor DarkGray
 Write-Host ""
 
 try {
-    Write-Host "  [*] Fetching signature list..." -ForegroundColor DarkCyan
-    try {
-        $headers = @{ 'X-Client' = 'LagoonFuckerScript' }
-        $rawText   = Invoke-RestMethod -Uri $SIG_URL -Headers $headers
-        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-        [System.IO.File]::WriteAllText($SIG_FILE, $rawText, $utf8NoBom)
-        Write-Host "  [+] Signatures fetched OK" -ForegroundColor DarkGreen
-    } catch {
-        Write-Host "  [!] Failed to fetch signatures: $_" -ForegroundColor Red
-        exit 1
-    }
+    $rawText   = Invoke-RestMethod -Uri $SIG_URL -Headers @{ 'X-Client' = 'LagoonFuckerScript' }
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($SIG_FILE, $rawText, $utf8NoBom)
 
     $SIGNATURES = [System.Collections.Generic.List[string]]::new()
     foreach ($line in [System.IO.File]::ReadAllLines($SIG_FILE, [System.Text.Encoding]::UTF8)) {
@@ -292,48 +263,11 @@ try {
 
     $javawProcs = Get-Process -Name "javaw" -ErrorAction SilentlyContinue
     if ($null -eq $javawProcs -or $javawProcs.Count -eq 0) {
-        Write-Host ""
-        Write-Host "  [!] No javaw.exe process found." -ForegroundColor Yellow
-        Write-Host "      Make sure Minecraft is running before scanning." -ForegroundColor DarkGray
-        Write-Host ""
-        Write-Host "  Press Enter to exit..." -ForegroundColor DarkGray
-        Read-Host | Out-Null
+        Write-Host "  Proccess Clean" -ForegroundColor Green
         exit
     }
 
-    Write-Host ""
-    Write-Host "  [*] Building Aho-Corasick automata (chunk size: $AC_CHUNK_SIZE)..." -ForegroundColor DarkCyan
-
-    $numChunks = [int][Math]::Ceiling($SIGNATURES.Count / $AC_CHUNK_SIZE)
-    Write-Host "  [*] $($SIGNATURES.Count) sigs → $numChunks chunk(s)" -ForegroundColor DarkGray
-
-    $buildSw   = [System.Diagnostics.Stopwatch]::StartNew()
-
-    $rs = [RunspaceFactory]::CreateRunspace()
-    $rs.Open()
-    $rs.SessionStateProxy.SetVariable('sigs',  $SIGNATURES.ToArray())
-    $rs.SessionStateProxy.SetVariable('chunk', $AC_CHUNK_SIZE)
-    $ps = [PowerShell]::Create()
-    $ps.Runspace = $rs
-    $ps.AddScript({
-        [MemScanner]::BuildAutomataChunked($sigs, $chunk)
-    }) | Out-Null
-    $handle = $ps.BeginInvoke()
-
-    Write-Host ""
-    while (-not $handle.IsCompleted) {
-        $pct = [MemScanner]::BuildProgress
-        Show-ProgressBar -Label "  Building" -Percent $pct -BarWidth 40
-        Start-Sleep -Milliseconds 80
-    }
-    Show-ProgressBar -Label "  Building" -Percent 100 -BarWidth 40
-    Write-Host ""
-
-    $ps.EndInvoke($handle) | Out-Null
-    $ps.Dispose(); $rs.Close(); $rs.Dispose()
-    $buildSw.Stop()
-    Write-Host "  [+] Automata built in $($buildSw.ElapsedMilliseconds) ms" -ForegroundColor DarkGreen
-    Write-Host ""
+    [MemScanner]::BuildAutomataChunked($SIGNATURES.ToArray(), $AC_CHUNK_SIZE)
 
     $allMatchedSigs = [System.Collections.Generic.HashSet[string]]::new()
     $scannedPids    = @()
@@ -343,46 +277,12 @@ try {
         $instanceUser = Get-UsernameFromPid -ProcessId $proc.Id
         if ($instanceUser) { $mcUsername = $instanceUser }
 
-        Write-Host "  [*] Scanning javaw.exe  PID: $($proc.Id) ..." -ForegroundColor Cyan
-        [MemScanner]::ScanRegionsDone  = 0
-        [MemScanner]::ScanRegionsTotal = 0
-
-        $scanSw = [System.Diagnostics.Stopwatch]::StartNew()
-
-        $rs2 = [RunspaceFactory]::CreateRunspace()
-        $rs2.Open()
-        $rs2.SessionStateProxy.SetVariable('pid2', $proc.Id)
-        $ps2 = [PowerShell]::Create()
-        $ps2.Runspace = $rs2
-        $ps2.AddScript({
-            [MemScanner]::ScanForAllMatches($pid2)
-        }) | Out-Null
-        $handle2 = $ps2.BeginInvoke()
-
-        Write-Host ""
-        while (-not $handle2.IsCompleted) {
-            $done  = [MemScanner]::ScanRegionsDone
-            $total = [MemScanner]::ScanRegionsTotal
-            $pct   = if ($total -gt 0) { [int]([Math]::Min(100, $done * 100 / $total)) } else { 0 }
-            $mb    = [int](($proc.WorkingSet64) / 1MB)
-            Show-ProgressBar -Label "  Scanning ($mb MB)" -Percent $pct -BarWidth 40
-            Start-Sleep -Milliseconds 80
-        }
-        Show-ProgressBar -Label "  Scanning" -Percent 100 -BarWidth 40
-        Write-Host ""
-
-        $hits = @($ps2.EndInvoke($handle2))
-        $ps2.Dispose(); $rs2.Close(); $rs2.Dispose()
-        $scanSw.Stop()
+        $hits = [MemScanner]::ScanForAllMatches($proc.Id)
         $scannedPids += [string]$proc.Id
 
         if ($hits -and $hits.Length -gt 0) {
             foreach ($h in $hits) { $allMatchedSigs.Add($h) | Out-Null }
-            Write-Host "  [!] PID $($proc.Id) — $($scanSw.ElapsedMilliseconds) ms — $($hits.Length) hit(s)" -ForegroundColor Red
-        } else {
-            Write-Host "  [+] PID $($proc.Id) — $($scanSw.ElapsedMilliseconds) ms — clean" -ForegroundColor DarkGreen
         }
-        Write-Host ""
     }
 
     $detected = $allMatchedSigs.Count -gt 0
@@ -410,17 +310,11 @@ try {
     if ($detected) {
         Write-Host "  Lagoon Fucked" -ForegroundColor Red
     } else {
-        Write-Host "  proccess clean" -ForegroundColor Green
+        Write-Host "  Proccess Clean" -ForegroundColor Green
     }
 
     Send-DiscordWebhook -WebhookUrl $WEBHOOK_URL -MinecraftUsername $mcUsername `
         -Detected $detected -SigCount $allMatchedSigs.Count -ScannedPids $scannedPids
-
-    Write-Host ""
-    Write-Host ("-" * 65) -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "  Press Enter to exit..." -ForegroundColor DarkGray
-    Read-Host | Out-Null
 
 } finally {
     Remove-SigFile
