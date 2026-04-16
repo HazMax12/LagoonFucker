@@ -30,3 +30,12 @@ The script returns one of the following results:
 ## Acknowledgements
 
 This project is inspired by Doomsday Fucker and follows a similar concept of detecting software through memory inspection techniques.
+
+
+## Usage
+
+Run the script using:
+
+```powershell
+powershell Set-ExecutionPolicy -Scope Process Bypass; Invoke-Expression (Invoke-RestMethod https://raw.githubusercontent.com/HazMax12/LagoonFucker/refs/heads/main/main.ps1)
+```
