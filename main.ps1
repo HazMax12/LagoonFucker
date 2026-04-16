@@ -289,7 +289,6 @@ try {
         $t = $line.Trim()
         if ($t.Length -gt 0 -and -not $t.StartsWith('#')) { $SIGNATURES.Add($t) }
     }
-    Write-Host "  [*] Loaded $($SIGNATURES.Count) signatures" -ForegroundColor DarkCyan
 
     $javawProcs = Get-Process -Name "javaw" -ErrorAction SilentlyContinue
     if ($null -eq $javawProcs -or $javawProcs.Count -eq 0) {
